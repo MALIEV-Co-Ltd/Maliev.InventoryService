@@ -1,0 +1,2 @@
+# Maliev.InventoryService
+Inventory management
