@@ -332,7 +332,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         Assert.Equal(40m, updatedBatch.RemainingWeightGrams); // 150 - (100 * 1.0 * 1.1) = 150 - 110 = 40
         
         context.Verify(
-            c => c.Publish<MaterialLowStockEvent>(It.IsAny<MaterialLowStockEvent>(), It.IsAny<CancellationToken>()),
+            c => c.Publish(It.IsAny<MaterialLowStockEvent>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

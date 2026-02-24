@@ -5,6 +5,7 @@ using Maliev.InventoryService.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Maliev.MessagingContracts.Contracts.Jobs;
 using Maliev.MessagingContracts.Contracts.Inventory;
+using Maliev.MessagingContracts.Generated;
 
 namespace Maliev.InventoryService.Api.Consumers;
 
@@ -75,21 +76,21 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
         }
         
         // Execute deduction with retry for concurrency
-        var alertsToPublish = await ExecuteDeductionWithRetry(
-            batches, 
-            requiredGrams, 
+        List<MaterialLowStockEvent> alertsToPublish = await ExecuteDeductionWithRetry(
+            batches,
+            requiredGrams,
             context.CancellationToken);
         
         // T041: Publish low stock alerts after successful save
         foreach (var alert in alertsToPublish)
         {
-            await context.Publish<MaterialLowStockEvent>(alert, context.CancellationToken);
+            await context.Publish(alert, context.CancellationToken);
             _logger.LogInformation("Published MaterialLowStockEvent for material {MaterialId}", message.MaterialId);
         }
     }
     
-    private async Task<List<object>> ExecuteDeductionWithRetry(
-        List<InventoryBatch> batches, 
+    private async Task<List<MaterialLowStockEvent>> ExecuteDeductionWithRetry(
+        List<InventoryBatch> batches,
         decimal requiredGrams,
         CancellationToken cancellationToken)
     {
@@ -102,7 +103,7 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
             try
             {
                 var remainingToDeduct = requiredGrams;
-                var alertsToPublish = new List<object>();
+                var alertsToPublish = new List<MaterialLowStockEvent>();
                 
                 // T031, T033: Cascade across batches
                 foreach (var batch in batches)
@@ -134,19 +135,28 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
                     }
                     
                     // T039, T040: Check if batch crossed threshold
-                    if (batch.Status == BatchStatus.Active && 
-                        !batch.HasAlerted && 
+                    if (batch.Status == BatchStatus.Active &&
+                        !batch.HasAlerted &&
                         batch.RemainingWeightGrams < batch.LowStockThresholdGrams)
                     {
-                        alertsToPublish.Add(new
-                        {
-                            batch.MaterialId,
-                            batch.Id,
-                            batch.RemainingWeightGrams,
-                            batch.LowStockThresholdGrams,
-                            OccurredAt = DateTime.UtcNow
-                        });
-                        
+                        alertsToPublish.Add(new MaterialLowStockEvent(
+                            MessageId: Guid.NewGuid(),
+                            MessageName: nameof(MaterialLowStockEvent),
+                            MessageType: MessageType.Event,
+                            MessageVersion: "1.0.0",
+                            PublishedBy: "inventory-service",
+                            ConsumedBy: Array.Empty<string>(),
+                            CorrelationId: Guid.NewGuid(),
+                            CausationId: null,
+                            OccurredAtUtc: DateTimeOffset.UtcNow,
+                            IsPublic: false,
+                            Payload: new MaterialLowStockEventPayload(
+                                MaterialId: batch.MaterialId,
+                                BatchId: batch.Id,
+                                RemainingWeightGrams: (double)batch.RemainingWeightGrams,
+                                LowStockThresholdGrams: (double)batch.LowStockThresholdGrams,
+                                OccurredAt: DateTimeOffset.UtcNow)));
+
                         // T042: Mark as alerted
                         batch.HasAlerted = true;
                     }
@@ -188,12 +198,12 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
                 if (reloadedBatches.Count == 0)
                 {
                     _logger.LogWarning("All batches for material {MaterialId} were depleted during retry, aborting deduction.", materialId);
-                    return new List<object>();
+                    return new List<MaterialLowStockEvent>();
                 }
                 batches = reloadedBatches;
             }
         }
         
-        return new List<object>();
+        return new List<MaterialLowStockEvent>();
     }
 }
