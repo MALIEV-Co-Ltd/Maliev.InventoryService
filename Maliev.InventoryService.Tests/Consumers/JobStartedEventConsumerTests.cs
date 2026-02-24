@@ -85,19 +85,21 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var consumer = new JobStartedEventConsumer(
             _materialClientMock.Object,
             _context,
-            _publishEndpointMock.Object,
             _loggerMock.Object);
 
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
-            JobId = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
-            MaterialId = materialId,
-            VolumeCm3 = 100m,
-            Technology = "FDM",
-            AssignedMachineId = "PRINTER-01",
-            StartedAt = DateTime.UtcNow
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 100.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
         });
         context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
 
@@ -127,19 +129,21 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var consumer = new JobStartedEventConsumer(
             _materialClientMock.Object,
             _context,
-            _publishEndpointMock.Object,
             _loggerMock.Object);
 
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
-            JobId = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
-            MaterialId = materialId,
-            VolumeCm3 = 100m,
-            Technology = "FDM",
-            AssignedMachineId = "PRINTER-01",
-            StartedAt = DateTime.UtcNow
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 100.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
         });
         context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
 
@@ -166,19 +170,21 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var consumer = new JobStartedEventConsumer(
             _materialClientMock.Object,
             _context,
-            _publishEndpointMock.Object,
             _loggerMock.Object);
 
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
-            JobId = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
-            MaterialId = materialId,
-            VolumeCm3 = 100m,
-            Technology = "FDM",
-            AssignedMachineId = "PRINTER-01",
-            StartedAt = DateTime.UtcNow
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 100.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
         });
         context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
 
@@ -231,19 +237,21 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var consumer = new JobStartedEventConsumer(
             _materialClientMock.Object,
             _context,
-            _publishEndpointMock.Object,
             _loggerMock.Object);
 
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
-            JobId = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
-            MaterialId = materialId,
-            VolumeCm3 = 500m,
-            Technology = "FDM",
-            AssignedMachineId = "PRINTER-01",
-            StartedAt = DateTime.UtcNow
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 500.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
         });
         context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
 
@@ -296,19 +304,21 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var consumer = new JobStartedEventConsumer(
             _materialClientMock.Object,
             _context,
-            _publishEndpointMock.Object,
             _loggerMock.Object);
 
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
-            JobId = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
-            MaterialId = materialId,
-            VolumeCm3 = 100m,
-            Technology = "FDM",
-            AssignedMachineId = "PRINTER-01",
-            StartedAt = DateTime.UtcNow
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 100.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
         });
         context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
 
@@ -359,19 +369,21 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var consumer = new JobStartedEventConsumer(
             _materialClientMock.Object,
             _context,
-            _publishEndpointMock.Object,
             _loggerMock.Object);
 
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
-            JobId = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
-            MaterialId = materialId,
-            VolumeCm3 = 10m,
-            Technology = "FDM",
-            AssignedMachineId = "PRINTER-01",
-            StartedAt = DateTime.UtcNow
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 10.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
         });
         context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
 
@@ -422,20 +434,22 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var consumer = new JobStartedEventConsumer(
             _materialClientMock.Object,
             _context,
-            _publishEndpointMock.Object,
             _loggerMock.Object);
 
         // Require 825g total needed (VolumeCm3 = 750 * 1.0 * 1.1)
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
-            JobId = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
-            MaterialId = materialId,
-            VolumeCm3 = 750m, // 750 * 1.0 * 1.1 = 825g required (8 batches + 25g from 9th)
-            Technology = "FDM",
-            AssignedMachineId = "PRINTER-01",
-            StartedAt = DateTime.UtcNow
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 750.0, // 750 * 1.0 * 1.1 = 825g required (8 batches + 25g from 9th)
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
         });
         context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
 
