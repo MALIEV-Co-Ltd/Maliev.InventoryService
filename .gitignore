@@ -48,6 +48,16 @@ CodeCoverage/
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Aspire Configuration
+.aspire/
+
 # NUnit
 *.VisualState.xml
 TestResult.xml
