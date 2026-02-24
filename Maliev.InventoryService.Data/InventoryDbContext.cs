@@ -62,12 +62,10 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.ReceivedAt)
                 .IsRequired();
             
-            entity.Property(e => e.RowVersion)
-                .IsConcurrencyToken()
-                .ValueGeneratedNever()
-                .IsRequired();
+            // Native PostgreSQL optimistic concurrency using xmin
+            entity.Property<uint>("xmin")
+                .IsRowVersion();
 
-            
             // Indexes
             entity.HasIndex(e => e.MaterialId)
                 .HasDatabaseName("IX_InventoryBatches_MaterialId");
@@ -85,49 +83,18 @@ public class InventoryDbContext : DbContext
     }
 
     /// <summary>
-    /// Synchronous SaveChanges with RowVersion increment.
+    /// Synchronous SaveChanges.
     /// </summary>
     public override int SaveChanges()
     {
-        HandleRowVersion();
         return base.SaveChanges();
     }
 
     /// <summary>
-    /// Asynchronous SaveChangesAsync with RowVersion increment.
+    /// Asynchronous SaveChangesAsync.
     /// </summary>
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        HandleRowVersion();
         return await base.SaveChangesAsync(cancellationToken);
-    }
-
-    private void HandleRowVersion()
-    {
-        var entries = ChangeTracker.Entries<InventoryBatch>()
-            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
-
-        foreach (var entry in entries)
-        {
-            if (entry.State == EntityState.Added)
-            {
-                entry.Property(i => i.RowVersion).CurrentValue = BitConverter.GetBytes(1L);
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                var originalVersion = entry.Property(i => i.RowVersion).OriginalValue;
-
-                if (originalVersion == null || originalVersion.Length < 8)
-                {
-                    entry.Property(i => i.RowVersion).CurrentValue = BitConverter.GetBytes(1L);
-                }
-                else
-                {
-                    var versionNumber = BitConverter.ToInt64(originalVersion, 0);
-                    versionNumber++;
-                    entry.Property(i => i.RowVersion).CurrentValue = BitConverter.GetBytes(versionNumber);
-                }
-            }
-        }
     }
 }

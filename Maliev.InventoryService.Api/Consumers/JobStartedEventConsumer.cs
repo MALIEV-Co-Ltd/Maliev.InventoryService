@@ -13,9 +13,9 @@ namespace Maliev.InventoryService.Api.Consumers;
 /// </summary>
 public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
 {
+    private const decimal WasteBufferFactor = 1.10m;
     private readonly IMaterialServiceClient _materialClient;
     private readonly InventoryDbContext _context;
-    private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<JobStartedEventConsumer> _logger;
 
     /// <summary>
@@ -23,24 +23,21 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
     /// </summary>
     /// <param name="materialClient">The material service client.</param>
     /// <param name="context">The database context.</param>
-    /// <param name="publishEndpoint">The message bus publish endpoint.</param>
     /// <param name="logger">The logger.</param>
     public JobStartedEventConsumer(
         IMaterialServiceClient materialClient,
         InventoryDbContext context,
-        IPublishEndpoint publishEndpoint,
         ILogger<JobStartedEventConsumer> logger)
     {
         _materialClient = materialClient;
         _context = context;
-        _publishEndpoint = publishEndpoint;
         _logger = logger;
     }
 
     /// <inheritdoc />
     public async Task Consume(ConsumeContext<JobStartedEvent> context)
     {
-        var message = context.Message;
+        var message = context.Message.Payload;
         
         // T026: Handle zero/negative volume
         if (message.VolumeCm3 <= 0)
@@ -60,7 +57,7 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
         }
         
         // T024: Calculate required grams with 10% waste buffer
-        var requiredGrams = message.VolumeCm3 * material.Density * 1.10m;
+        var requiredGrams = (decimal)message.VolumeCm3 * material.Density * WasteBufferFactor;
         
         // T023: Get active batches in FIFO order (with Id tiebreaker for same timestamp)
         var batches = await _context.InventoryBatches
@@ -86,25 +83,26 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
         // T041: Publish low stock alerts after successful save
         foreach (var alert in alertsToPublish)
         {
-            await _publishEndpoint.Publish(alert, context.CancellationToken);
-            _logger.LogInformation("Published MaterialLowStockEvent for batch {BatchId}", alert.BatchId);
+            await context.Publish<MaterialLowStockEvent>(alert, context.CancellationToken);
+            _logger.LogInformation("Published MaterialLowStockEvent for material {MaterialId}", message.MaterialId);
         }
     }
     
-    private async Task<List<MaterialLowStockEvent>> ExecuteDeductionWithRetry(
+    private async Task<List<object>> ExecuteDeductionWithRetry(
         List<InventoryBatch> batches, 
         decimal requiredGrams,
         CancellationToken cancellationToken)
     {
         const int maxRetries = 3;
         var currentRetry = 0;
+        var materialId = batches[0].MaterialId;
         
         while (currentRetry < maxRetries)
         {
             try
             {
                 var remainingToDeduct = requiredGrams;
-                var alertsToPublish = new List<MaterialLowStockEvent>();
+                var alertsToPublish = new List<object>();
                 
                 // T031, T033: Cascade across batches
                 foreach (var batch in batches)
@@ -140,12 +138,12 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
                         !batch.HasAlerted && 
                         batch.RemainingWeightGrams < batch.LowStockThresholdGrams)
                     {
-                        alertsToPublish.Add(new MaterialLowStockEvent
+                        alertsToPublish.Add(new
                         {
-                            MaterialId = batch.MaterialId,
-                            BatchId = batch.Id,
-                            RemainingWeightGrams = batch.RemainingWeightGrams,
-                            LowStockThresholdGrams = batch.LowStockThresholdGrams,
+                            batch.MaterialId,
+                            batch.Id,
+                            batch.RemainingWeightGrams,
+                            batch.LowStockThresholdGrams,
                             OccurredAt = DateTime.UtcNow
                         });
                         
@@ -181,14 +179,21 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
                 await Task.Delay(TimeSpan.FromMilliseconds(100 * Math.Pow(2, currentRetry)), cancellationToken);
                 
                 // Reload batches
-                batches = await _context.InventoryBatches
-                    .Where(b => b.MaterialId == batches[0].MaterialId && b.Status == BatchStatus.Active)
+                var reloadedBatches = await _context.InventoryBatches
+                    .Where(b => b.MaterialId == materialId && b.Status == BatchStatus.Active)
                     .OrderBy(b => b.ReceivedAt)
                     .ThenBy(b => b.Id)
                     .ToListAsync(cancellationToken);
+
+                if (reloadedBatches.Count == 0)
+                {
+                    _logger.LogWarning("All batches for material {MaterialId} were depleted during retry, aborting deduction.", materialId);
+                    return new List<object>();
+                }
+                batches = reloadedBatches;
             }
         }
         
-        return new List<MaterialLowStockEvent>();
+        return new List<object>();
     }
 }

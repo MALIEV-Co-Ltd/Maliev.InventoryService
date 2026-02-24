@@ -30,6 +30,9 @@ try
     builder.AddMassTransitWithRabbitMq(configure: x =>
     {
         x.AddConsumer<JobStartedEventConsumer>();
+        
+        // The underlying implementation handles UsingRabbitMq, but we can add global retry here if needed
+        // though it's typically handled in the AddMassTransitWithRabbitMq helper.
     });
 
     // JWT Authentication (also registers AddPermissionAuthorization internally)

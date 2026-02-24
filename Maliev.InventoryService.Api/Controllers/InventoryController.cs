@@ -88,7 +88,7 @@ public class InventoryController : ControllerBase
             ReceivedAt = batch.ReceivedAt
         };
 
-        return CreatedAtAction(nameof(GetStatus), new { batchId = batch.Id }, response);
+        return CreatedAtAction(nameof(GetStatus), new { materialId = batch.MaterialId }, response);
     }
 
     /// <summary>
