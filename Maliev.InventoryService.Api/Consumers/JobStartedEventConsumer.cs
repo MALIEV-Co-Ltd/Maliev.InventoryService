@@ -5,7 +5,7 @@ using Maliev.InventoryService.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Maliev.MessagingContracts.Contracts.Jobs;
 using Maliev.MessagingContracts.Contracts.Inventory;
-using Maliev.MessagingContracts.Generated;
+using Maliev.MessagingContracts;
 
 namespace Maliev.InventoryService.Api.Consumers;
 
