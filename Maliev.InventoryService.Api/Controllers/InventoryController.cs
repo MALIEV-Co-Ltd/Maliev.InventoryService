@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Maliev.InventoryService.Api.Authorization;
 using Maliev.Aspire.ServiceDefaults.Authorization;
-using Maliev.InventoryService.Data;
-using Maliev.InventoryService.Data.Entities;
-using Maliev.InventoryService.Api.Clients;
+using Maliev.InventoryService.Infrastructure.Persistence;
+using Maliev.InventoryService.Domain.Entities;
+using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Api.DTOs;
 
 namespace Maliev.InventoryService.Api.Controllers;

@@ -27,7 +27,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Maliev.InventoryService.Api\Maliev.InventoryService.Api.csproj" />
-    <ProjectReference Include="..\Maliev.InventoryService.Data\Maliev.InventoryService.Data.csproj" />
+    <ProjectReference Include="..\Maliev.InventoryService.Domain\Maliev.InventoryService.Domain.csproj" />
+    <ProjectReference Include="..\Maliev.InventoryService.Infrastructure\Maliev.InventoryService.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -2,11 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
-using Maliev.InventoryService.Api.Clients;
+using Maliev.InventoryService.Domain.Clients;
+using Maliev.InventoryService.Domain.Models;
 using Maliev.InventoryService.Api.Controllers;
 using Maliev.InventoryService.Api.DTOs;
-using Maliev.InventoryService.Data;
-using Maliev.InventoryService.Data.Entities;
+using Maliev.InventoryService.Infrastructure.Persistence;
+using Maliev.InventoryService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace Maliev.InventoryService.Tests.Controllers;

@@ -1,7 +1,7 @@
-using Maliev.InventoryService.Api.Clients;
 using Maliev.InventoryService.Api.Consumers;
+using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Api.Services;
-using Maliev.InventoryService.Data;
+using Maliev.InventoryService.Infrastructure.Persistence;
 
 // Initialize bootstrap logging
 using var loggerFactory = LoggerFactory.Create(logBuilder => logBuilder.AddConsole());
@@ -44,7 +44,7 @@ try
 
 
     // Authenticated client for MaterialService calls
-    builder.AddAuthenticatedServiceClient<IMaterialServiceClient, MaterialServiceClient>("MaterialService", sourceServiceName: "InventoryService");
+    builder.AddAuthenticatedServiceClient<IMaterialServiceClient, Maliev.InventoryService.Infrastructure.HttpClients.MaterialServiceClient>("MaterialService", sourceServiceName: "InventoryService");
 
     // --- API Configuration ---
     builder.AddStandardCors();
