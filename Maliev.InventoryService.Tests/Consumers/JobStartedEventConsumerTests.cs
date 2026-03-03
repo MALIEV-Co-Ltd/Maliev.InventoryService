@@ -483,4 +483,245 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         Assert.True(stopwatch.ElapsedMilliseconds < 2000, 
             $"Cascade operation took {stopwatch.ElapsedMilliseconds}ms, exceeding 2000ms threshold");
     }
+
+    /// <summary>
+    /// Verifies that zero volume jobs are skipped without deduction.
+    /// </summary>
+    [Fact]
+    public async Task Consume_ZeroVolume_SkipsDeduction()
+    {
+        // Arrange
+        var materialId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        
+        _materialClientMock
+            .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
+
+        var batch = new InventoryBatch
+        {
+            Id = batchId,
+            MaterialId = materialId,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 1000m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1),
+            RowVersion = new byte[] { 1, 2, 3, 4 }
+        };
+        _context.InventoryBatches.Add(batch);
+        await _context.SaveChangesAsync();
+
+        var consumer = new JobStartedEventConsumer(
+            _materialClientMock.Object,
+            _context,
+            _loggerMock.Object);
+
+        var context = new Mock<ConsumeContext<JobStartedEvent>>();
+        context.Setup(c => c.Message).Returns(new JobStartedEvent
+        {
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 0.0, // Zero volume
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
+        });
+        context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
+
+        // Act
+        await consumer.Consume(context.Object);
+
+        // Assert - Batch should remain unchanged
+        var updatedBatch = await _context.InventoryBatches.FindAsync(batchId);
+        Assert.NotNull(updatedBatch);
+        Assert.Equal(1000m, updatedBatch.RemainingWeightGrams);
+        Assert.Equal(BatchStatus.Active, updatedBatch.Status);
+    }
+
+    /// <summary>
+    /// Verifies that negative volume jobs are skipped without deduction.
+    /// </summary>
+    [Fact]
+    public async Task Consume_NegativeVolume_SkipsDeduction()
+    {
+        // Arrange
+        var materialId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        
+        _materialClientMock
+            .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
+
+        var batch = new InventoryBatch
+        {
+            Id = batchId,
+            MaterialId = materialId,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 1000m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1),
+            RowVersion = new byte[] { 1, 2, 3, 4 }
+        };
+        _context.InventoryBatches.Add(batch);
+        await _context.SaveChangesAsync();
+
+        var consumer = new JobStartedEventConsumer(
+            _materialClientMock.Object,
+            _context,
+            _loggerMock.Object);
+
+        var context = new Mock<ConsumeContext<JobStartedEvent>>();
+        context.Setup(c => c.Message).Returns(new JobStartedEvent
+        {
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = -50.0, // Negative volume
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
+        });
+        context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
+
+        // Act
+        await consumer.Consume(context.Object);
+
+        // Assert - Batch should remain unchanged
+        var updatedBatch = await _context.InventoryBatches.FindAsync(batchId);
+        Assert.NotNull(updatedBatch);
+        Assert.Equal(1000m, updatedBatch.RemainingWeightGrams);
+        Assert.Equal(BatchStatus.Active, updatedBatch.Status);
+    }
+
+    /// <summary>
+    /// Verifies that exact depletion sets status to Depleted correctly.
+    /// </summary>
+    [Fact]
+    public async Task Consume_ExactDepletion_SetsStatusToDepleted()
+    {
+        // Arrange
+        var materialId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        
+        _materialClientMock
+            .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
+
+        // Batch has exactly 110g remaining, job needs 110g (100 * 1.0 * 1.1)
+        var batch = new InventoryBatch
+        {
+            Id = batchId,
+            MaterialId = materialId,
+            InitialWeightGrams = 110m,
+            RemainingWeightGrams = 110m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1),
+            RowVersion = new byte[] { 1, 2, 3, 4 }
+        };
+        _context.InventoryBatches.Add(batch);
+        await _context.SaveChangesAsync();
+
+        var consumer = new JobStartedEventConsumer(
+            _materialClientMock.Object,
+            _context,
+            _loggerMock.Object);
+
+        var context = new Mock<ConsumeContext<JobStartedEvent>>();
+        context.Setup(c => c.Message).Returns(new JobStartedEvent
+        {
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 100.0, // 100 * 1.0 * 1.1 = 110g needed
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
+        });
+        context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
+
+        // Act
+        await consumer.Consume(context.Object);
+
+        // Assert
+        var updatedBatch = await _context.InventoryBatches.FindAsync(batchId);
+        Assert.NotNull(updatedBatch);
+        Assert.Equal(0m, updatedBatch.RemainingWeightGrams);
+        Assert.Equal(BatchStatus.Depleted, updatedBatch.Status);
+    }
+
+    /// <summary>
+    /// Verifies that insufficient inventory logs a warning.
+    /// </summary>
+    [Fact]
+    public async Task Consume_InsufficientInventory_LogsWarning()
+    {
+        // Arrange
+        var materialId = Guid.NewGuid();
+        
+        _materialClientMock
+            .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
+
+        var batch = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId,
+            InitialWeightGrams = 100m,
+            RemainingWeightGrams = 100m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 50m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1),
+            RowVersion = new byte[] { 1, 2, 3, 4 }
+        };
+        _context.InventoryBatches.Add(batch);
+        await _context.SaveChangesAsync();
+
+        var consumer = new JobStartedEventConsumer(
+            _materialClientMock.Object,
+            _context,
+            _loggerMock.Object);
+
+        // Need 550g but only have 100g
+        var context = new Mock<ConsumeContext<JobStartedEvent>>();
+        context.Setup(c => c.Message).Returns(new JobStartedEvent
+        {
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 500.0, // 500 * 1.0 * 1.1 = 550g needed
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
+        });
+        context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
+
+        // Act
+        await consumer.Consume(context.Object);
+
+        // Assert - Batch should be depleted
+        var updatedBatch = await _context.InventoryBatches.FindAsync(batch.Id);
+        Assert.NotNull(updatedBatch);
+        Assert.Equal(0m, updatedBatch.RemainingWeightGrams);
+        Assert.Equal(BatchStatus.Depleted, updatedBatch.Status);
+    }
 }

@@ -140,4 +140,240 @@ public class InventoryControllerTests : IClassFixture<PostgresFixture>, IAsyncLi
         var response = Assert.IsType<CreateBatchResponse>(createdResult.Value);
         Assert.Equal(100m, response.LowStockThresholdGrams); // Default value
     }
+
+    /// <summary>
+    /// Verifies that GetStatus returns all active batches when no filters are applied.
+    /// </summary>
+    [Fact]
+    public async Task GetStatus_NoFilters_ReturnsAllActiveBatches()
+    {
+        // Arrange
+        var materialId1 = Guid.NewGuid();
+        var materialId2 = Guid.NewGuid();
+        
+        var batch1 = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId1,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 800m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var batch2 = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId1,
+            InitialWeightGrams = 500m,
+            RemainingWeightGrams = 500m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet B",
+            LowStockThresholdGrams = 50m,
+            ReceivedAt = DateTime.UtcNow
+        };
+        var batch3 = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId2,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 1000m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet C",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow
+        };
+        
+        _context.InventoryBatches.AddRange(batch1, batch2, batch3);
+        await _context.SaveChangesAsync();
+
+        var controller = new InventoryController(_context, _materialClientMock.Object, _loggerMock.Object);
+
+        // Act
+        var result = await controller.GetStatus(null, null, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var summaries = Assert.IsAssignableFrom<IEnumerable<MaterialStatusSummary>>(okResult.Value);
+        var summaryList = summaries.ToList();
+        
+        Assert.Equal(2, summaryList.Count);
+        
+        var material1Summary = summaryList.First(s => s.MaterialId == materialId1);
+        Assert.Equal(2, material1Summary.ActiveBatches);
+        Assert.Equal(1300m, material1Summary.TotalRemainingGrams); // 800 + 500
+        Assert.Equal(500m, material1Summary.LowestBatchGrams);
+        
+        var material2Summary = summaryList.First(s => s.MaterialId == materialId2);
+        Assert.Equal(1, material2Summary.ActiveBatches);
+        Assert.Equal(1000m, material2Summary.TotalRemainingGrams);
+    }
+
+    /// <summary>
+    /// Verifies that GetStatus filters by material ID correctly.
+    /// </summary>
+    [Fact]
+    public async Task GetStatus_WithMaterialIdFilter_ReturnsOnlyFilteredMaterial()
+    {
+        // Arrange
+        var materialId1 = Guid.NewGuid();
+        var materialId2 = Guid.NewGuid();
+        
+        var batch1 = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId1,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 800m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow
+        };
+        var batch2 = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId2,
+            InitialWeightGrams = 500m,
+            RemainingWeightGrams = 500m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet B",
+            LowStockThresholdGrams = 50m,
+            ReceivedAt = DateTime.UtcNow
+        };
+        
+        _context.InventoryBatches.AddRange(batch1, batch2);
+        await _context.SaveChangesAsync();
+
+        var controller = new InventoryController(_context, _materialClientMock.Object, _loggerMock.Object);
+
+        // Act
+        var result = await controller.GetStatus(materialId1, null, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var summaries = Assert.IsAssignableFrom<IEnumerable<MaterialStatusSummary>>(okResult.Value);
+        var summaryList = summaries.ToList();
+        
+        Assert.Single(summaryList);
+        Assert.Equal(materialId1, summaryList[0].MaterialId);
+    }
+
+    /// <summary>
+    /// Verifies that GetStatus filters by status correctly.
+    /// </summary>
+    [Fact]
+    public async Task GetStatus_WithStatusFilter_ReturnsOnlyMatchingStatus()
+    {
+        // Arrange
+        var materialId = Guid.NewGuid();
+        
+        var activeBatch = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 800m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var depletedBatch = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId,
+            InitialWeightGrams = 500m,
+            RemainingWeightGrams = 0m,
+            Status = BatchStatus.Depleted,
+            Location = "Cabinet B",
+            LowStockThresholdGrams = 50m,
+            ReceivedAt = DateTime.UtcNow
+        };
+        
+        _context.InventoryBatches.AddRange(activeBatch, depletedBatch);
+        await _context.SaveChangesAsync();
+
+        var controller = new InventoryController(_context, _materialClientMock.Object, _loggerMock.Object);
+
+        // Act
+        var result = await controller.GetStatus(null, "Active", CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var summaries = Assert.IsAssignableFrom<IEnumerable<MaterialStatusSummary>>(okResult.Value);
+        var summaryList = summaries.ToList();
+        
+        Assert.Single(summaryList);
+        Assert.Equal(1, summaryList[0].ActiveBatches);
+        Assert.Equal(800m, summaryList[0].TotalRemainingGrams);
+    }
+
+    /// <summary>
+    /// Verifies that GetStatus returns empty list when no batches exist.
+    /// </summary>
+    [Fact]
+    public async Task GetStatus_NoBatches_ReturnsEmptyList()
+    {
+        // Arrange
+        var controller = new InventoryController(_context, _materialClientMock.Object, _loggerMock.Object);
+
+        // Act
+        var result = await controller.GetStatus(null, null, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var summaries = Assert.IsAssignableFrom<IEnumerable<MaterialStatusSummary>>(okResult.Value);
+        Assert.Empty(summaries);
+    }
+
+    /// <summary>
+    /// Verifies that GetStatus detects low stock correctly.
+    /// </summary>
+    [Fact]
+    public async Task GetStatus_WithLowStockBatch_DetectsLowStockAlert()
+    {
+        // Arrange
+        var materialId = Guid.NewGuid();
+        
+        var normalBatch = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 500m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow
+        };
+        var lowStockBatch = new InventoryBatch
+        {
+            Id = Guid.NewGuid(),
+            MaterialId = materialId,
+            InitialWeightGrams = 200m,
+            RemainingWeightGrams = 50m, // Below 100g threshold
+            Status = BatchStatus.Active,
+            Location = "Cabinet B",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow
+        };
+        
+        _context.InventoryBatches.AddRange(normalBatch, lowStockBatch);
+        await _context.SaveChangesAsync();
+
+        var controller = new InventoryController(_context, _materialClientMock.Object, _loggerMock.Object);
+
+        // Act
+        var result = await controller.GetStatus(null, null, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var summaries = Assert.IsAssignableFrom<IEnumerable<MaterialStatusSummary>>(okResult.Value);
+        var summaryList = summaries.ToList();
+        
+        Assert.Single(summaryList);
+        Assert.True(summaryList[0].HasLowStockAlert);
+    }
 }

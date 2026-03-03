@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,8 @@ namespace Maliev.InventoryService.Api.Controllers;
 /// Controller for managing material inventory.
 /// </summary>
 [ApiController]
-[Route("inventory/v1/stock")]
+[ApiVersion("1.0")]
+[Route("inventory/v{version:apiVersion}/stock")]
 [RequirePermission(InventoryPermissions.StockRead)]
 public class InventoryController : ControllerBase
 {
