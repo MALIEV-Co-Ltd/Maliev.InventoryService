@@ -1,7 +1,9 @@
-using Maliev.InventoryService.Api.Clients;
 using Maliev.InventoryService.Api.Consumers;
+using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Api.Services;
-using Maliev.InventoryService.Data;
+using Maliev.InventoryService.Infrastructure.Persistence;
+using Maliev.InventoryService.Application.Abstractions;
+using Maliev.InventoryService.Infrastructure.Services;
 
 // Initialize bootstrap logging
 using var loggerFactory = LoggerFactory.Create(logBuilder => logBuilder.AddConsole());
@@ -24,6 +26,9 @@ try
     // Register DbContext
     builder.AddPostgresDbContext<InventoryDbContext>(connectionName: "InventoryDbContext");
 
+    // Register Application Services
+    builder.Services.AddScoped<IInventoryService, InventoryService>();
+
     builder.AddStandardCache("inventory:");
 
     // MassTransit with RabbitMq
@@ -44,7 +49,7 @@ try
 
 
     // Authenticated client for MaterialService calls
-    builder.AddAuthenticatedServiceClient<IMaterialServiceClient, MaterialServiceClient>("MaterialService", sourceServiceName: "InventoryService");
+    builder.AddAuthenticatedServiceClient<IMaterialServiceClient, Maliev.InventoryService.Infrastructure.HttpClients.MaterialServiceClient>("MaterialService", sourceServiceName: "InventoryService");
 
     // --- API Configuration ---
     builder.AddStandardCors();

@@ -1,7 +1,7 @@
 using MassTransit;
-using Maliev.InventoryService.Api.Clients;
-using Maliev.InventoryService.Data;
-using Maliev.InventoryService.Data.Entities;
+using Maliev.InventoryService.Domain.Clients;
+using Maliev.InventoryService.Infrastructure.Persistence;
+using Maliev.InventoryService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Maliev.MessagingContracts.Contracts.Jobs;
 using Maliev.MessagingContracts.Contracts.Inventory;
