@@ -11,7 +11,10 @@
 		<SharedLibraryVersion Condition="'$(SharedLibraryVersion)' == ''">1.0.*-*</SharedLibraryVersion>
 	</PropertyGroup>
 
-	<ItemGroup>
+  <ItemGroup>
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.3" />
+		<ProjectReference Include="..\Maliev.InventoryService.Application\Maliev.InventoryService.Application.csproj" />
 		<ProjectReference Include="..\Maliev.InventoryService.Domain\Maliev.InventoryService.Domain.csproj" />
 		<ProjectReference Include="..\Maliev.InventoryService.Infrastructure\Maliev.InventoryService.Infrastructure.csproj" />
 	</ItemGroup>

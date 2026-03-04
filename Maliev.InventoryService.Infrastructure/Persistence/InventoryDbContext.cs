@@ -62,10 +62,6 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.ReceivedAt)
                 .IsRequired();
 
-            // Native PostgreSQL optimistic concurrency using xmin
-            entity.Property<uint>("xmin")
-                .IsRowVersion();
-
             // Indexes
             entity.HasIndex(e => e.MaterialId)
                 .HasDatabaseName("IX_InventoryBatches_MaterialId");

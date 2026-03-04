@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Maliev.InventoryService.Api/Maliev.InventoryService.Api.csproj" />
+  <Project Path="Maliev.InventoryService.Application/Maliev.InventoryService.Application.csproj" />
   <Project Path="Maliev.InventoryService.Domain/Maliev.InventoryService.Domain.csproj" />
   <Project Path="Maliev.InventoryService.Infrastructure/Maliev.InventoryService.Infrastructure.csproj" />
   <Project Path="Maliev.InventoryService.Tests/Maliev.InventoryService.Tests.csproj" />

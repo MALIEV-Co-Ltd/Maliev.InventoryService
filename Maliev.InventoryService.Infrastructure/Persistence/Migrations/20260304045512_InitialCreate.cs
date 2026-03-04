@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Maliev.InventoryService.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialInventorySchema : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -23,8 +23,7 @@ namespace Maliev.InventoryService.Infrastructure.Persistence.Migrations
                     Location = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     LowStockThresholdGrams = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false, defaultValue: 100m),
                     HasAlerted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    ReceivedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    RowVersion = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: false)
+                    ReceivedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {

@@ -1,13 +1,12 @@
 using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Maliev.InventoryService.Api.Authorization;
 using Maliev.Aspire.ServiceDefaults.Authorization;
-using Maliev.InventoryService.Infrastructure.Persistence;
-using Maliev.InventoryService.Domain.Entities;
+using Maliev.InventoryService.Application.Abstractions;
 using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Api.DTOs;
+using CreateBatchRequestModel = Maliev.InventoryService.Application.Models.CreateBatchRequest;
 
 namespace Maliev.InventoryService.Api.Controllers;
 
@@ -20,22 +19,22 @@ namespace Maliev.InventoryService.Api.Controllers;
 [RequirePermission(InventoryPermissions.StockRead)]
 public class InventoryController : ControllerBase
 {
-    private readonly InventoryDbContext _context;
+    private readonly IInventoryService _inventoryService;
     private readonly IMaterialServiceClient _materialClient;
     private readonly ILogger<InventoryController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="InventoryController"/> class.
     /// </summary>
-    /// <param name="context">The database context.</param>
+    /// <param name="inventoryService">The inventory service.</param>
     /// <param name="materialClient">The material service client.</param>
     /// <param name="logger">The logger.</param>
     public InventoryController(
-        InventoryDbContext context,
+        IInventoryService inventoryService,
         IMaterialServiceClient materialClient,
         ILogger<InventoryController> logger)
     {
-        _context = context;
+        _inventoryService = inventoryService;
         _materialClient = materialClient;
         _logger = logger;
     }
@@ -51,7 +50,6 @@ public class InventoryController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CreateBatch([FromBody] CreateBatchRequest request, CancellationToken cancellationToken)
     {
-        // Validate material exists in Material Service
         var material = await _materialClient.GetMaterialAsync(request.MaterialId, cancellationToken);
         if (material == null)
         {
@@ -59,38 +57,29 @@ public class InventoryController : ControllerBase
             return NotFound(new { error = $"Material {request.MaterialId} not found." });
         }
 
-        // Create batch with defaults
-        var batch = new InventoryBatch
+        var appRequest = new CreateBatchRequestModel
         {
-            Id = Guid.NewGuid(),
             MaterialId = request.MaterialId,
             InitialWeightGrams = request.InitialWeightGrams,
-            RemainingWeightGrams = request.InitialWeightGrams,
-            Status = BatchStatus.Active,
             Location = request.Location,
-            LowStockThresholdGrams = request.LowStockThresholdGrams ?? 100m,
-            HasAlerted = false,
-            ReceivedAt = DateTime.UtcNow
+            LowStockThresholdGrams = request.LowStockThresholdGrams
         };
 
-        _context.InventoryBatches.Add(batch);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        _logger.LogInformation("Created batch {BatchId} for material {MaterialId}", batch.Id, batch.MaterialId);
+        var result = await _inventoryService.CreateBatchAsync(appRequest, cancellationToken);
 
         var response = new CreateBatchResponse
         {
-            Id = batch.Id,
-            MaterialId = batch.MaterialId,
-            InitialWeightGrams = batch.InitialWeightGrams,
-            RemainingWeightGrams = batch.RemainingWeightGrams,
-            Status = batch.Status.ToString(),
-            Location = batch.Location,
-            LowStockThresholdGrams = batch.LowStockThresholdGrams,
-            ReceivedAt = batch.ReceivedAt
+            Id = result.Id,
+            MaterialId = result.MaterialId,
+            InitialWeightGrams = result.InitialWeightGrams,
+            RemainingWeightGrams = result.RemainingWeightGrams,
+            Status = result.Status,
+            Location = result.Location,
+            LowStockThresholdGrams = result.LowStockThresholdGrams,
+            ReceivedAt = result.ReceivedAt
         };
 
-        return CreatedAtAction(nameof(GetStatus), new { materialId = batch.MaterialId }, response);
+        return CreatedAtAction(nameof(GetStatus), new { materialId = result.MaterialId }, response);
     }
 
     /// <summary>
@@ -104,33 +93,16 @@ public class InventoryController : ControllerBase
         [FromQuery] string? status = "Active",
         CancellationToken cancellationToken = default)
     {
-        var query = _context.InventoryBatches.AsQueryable();
+        var results = await _inventoryService.GetStatusAsync(materialId, status, cancellationToken);
 
-        // Apply filters
-        if (materialId.HasValue)
+        var summaries = results.Select(r => new MaterialStatusSummary
         {
-            query = query.Where(b => b.MaterialId == materialId.Value);
-        }
-
-        if (!string.IsNullOrEmpty(status) && Enum.TryParse<BatchStatus>(status, out var statusFilter))
-        {
-            query = query.Where(b => b.Status == statusFilter);
-        }
-
-        // Group by material and aggregate
-        var summaries = await query
-            .GroupBy(b => b.MaterialId)
-            .Select(g => new MaterialStatusSummary
-            {
-                MaterialId = g.Key,
-                ActiveBatches = g.Count(b => b.Status == BatchStatus.Active),
-                TotalRemainingGrams = g.Sum(b => b.RemainingWeightGrams),
-                LowestBatchGrams = g.Min(b => b.RemainingWeightGrams),
-                HasLowStockAlert = g.Any(b => 
-                    b.Status == BatchStatus.Active && 
-                    b.RemainingWeightGrams < b.LowStockThresholdGrams)
-            })
-            .ToListAsync(cancellationToken);
+            MaterialId = r.MaterialId,
+            ActiveBatches = r.ActiveBatches,
+            TotalRemainingGrams = r.TotalRemainingGrams,
+            LowestBatchGrams = r.LowestBatchGrams,
+            HasLowStockAlert = r.HasLowStockAlert
+        });
 
         return Ok(summaries);
     }

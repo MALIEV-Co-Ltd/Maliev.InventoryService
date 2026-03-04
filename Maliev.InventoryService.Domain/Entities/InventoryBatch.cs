@@ -67,7 +67,8 @@ public class InventoryBatch
     public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Optimistic concurrency token.
+    /// Optimistic concurrency token (PostgreSQL xmin).
     /// </summary>
-    public byte[] RowVersion { get; set; } = [];
+    [Timestamp]
+    public uint RowVersion { get; set; }
 }
