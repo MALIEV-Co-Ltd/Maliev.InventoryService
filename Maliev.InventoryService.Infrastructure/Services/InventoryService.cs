@@ -39,7 +39,7 @@ public class InventoryService : IInventoryService
             Location = request.Location,
             LowStockThresholdGrams = request.LowStockThresholdGrams ?? 100m,
             HasAlerted = false,
-            ReceivedAt = DateTime.UtcNow
+            ReceivedAt = DateTimeOffset.UtcNow
         };
 
         _context.InventoryBatches.Add(batch);

@@ -3,11 +3,13 @@ using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Infrastructure.Persistence;
 using Maliev.InventoryService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Maliev.MessagingContracts;
+using Maliev.MessagingContracts.Contracts.Shared;
 using Maliev.MessagingContracts.Contracts.Jobs;
 using Maliev.MessagingContracts.Contracts.Inventory;
-using Maliev.MessagingContracts;
 
-namespace Maliev.InventoryService.Api.Consumers;
+namespace Maliev.InventoryService.Infrastructure.Consumers;
 
 /// <summary>
 /// Consumes JobStartedEvent to deduct material inventory.

@@ -5,7 +5,7 @@ using MassTransit;
 using MassTransit.Testing;
 using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Domain.Models;
-using Maliev.InventoryService.Api.Consumers;
+using Maliev.InventoryService.Infrastructure.Consumers;
 using Maliev.InventoryService.Infrastructure.Persistence;
 using Maliev.InventoryService.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -77,7 +77,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet A",
             LowStockThresholdGrams = 100m,
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
@@ -217,7 +216,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet A",
             LowStockThresholdGrams = 50m,
             ReceivedAt = DateTime.UtcNow.AddDays(-2),
-            RowVersion = 0u
         };
         var batchB = new InventoryBatch
         {
@@ -229,7 +227,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet B",
             LowStockThresholdGrams = 100m,
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.AddRange(batchA, batchB);
         await _context.SaveChangesAsync();
@@ -296,7 +293,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet A",
             LowStockThresholdGrams = 100m,
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
@@ -361,7 +357,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             LowStockThresholdGrams = 100m,
             HasAlerted = true, // Already alerted
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
@@ -425,7 +420,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
                 Location = $"Cabinet {i}",
                 LowStockThresholdGrams = 50m,
                 ReceivedAt = DateTime.UtcNow.AddDays(-10 + i), // FIFO ordering
-                RowVersion = 0u
             };
             _context.InventoryBatches.Add(batch);
         }
@@ -508,7 +502,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet A",
             LowStockThresholdGrams = 100m,
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
@@ -568,7 +561,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet A",
             LowStockThresholdGrams = 100m,
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
@@ -629,7 +621,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet A",
             LowStockThresholdGrams = 100m,
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
@@ -688,7 +679,6 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Location = "Cabinet A",
             LowStockThresholdGrams = 50m,
             ReceivedAt = DateTime.UtcNow.AddDays(-1),
-            RowVersion = 0u
         };
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Maliev.InventoryService.Infrastructure.Persistence.Migrations
+namespace Maliev.InventoryService.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -23,7 +23,8 @@ namespace Maliev.InventoryService.Infrastructure.Persistence.Migrations
                     Location = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     LowStockThresholdGrams = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false, defaultValue: 100m),
                     HasAlerted = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    ReceivedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    ReceivedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {

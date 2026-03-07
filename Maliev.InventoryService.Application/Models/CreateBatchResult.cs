@@ -20,5 +20,5 @@ public record CreateBatchResult
     /// <summary>Gets the low stock alert threshold.</summary>
     public required decimal LowStockThresholdGrams { get; init; }
     /// <summary>Gets the timestamp when the batch was received.</summary>
-    public required DateTime ReceivedAt { get; init; }
+    public required DateTimeOffset ReceivedAt { get; init; }
 }

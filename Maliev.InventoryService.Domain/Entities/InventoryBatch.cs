@@ -64,11 +64,5 @@ public class InventoryBatch
     /// Gets or sets the timestamp when the batch was received.
     /// </summary>
     [Required]
-    public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
-
-    /// <summary>
-    /// Optimistic concurrency token (PostgreSQL xmin).
-    /// </summary>
-    [Timestamp]
-    public uint RowVersion { get; set; }
+    public DateTimeOffset ReceivedAt { get; set; } = DateTimeOffset.UtcNow;
 }

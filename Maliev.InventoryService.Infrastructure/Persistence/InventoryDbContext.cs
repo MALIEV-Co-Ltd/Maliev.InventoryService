@@ -60,7 +60,13 @@ public class InventoryDbContext : DbContext
                 .IsRequired();
 
             entity.Property(e => e.ReceivedAt)
+                .HasConversion<DateTimeOffset>()
                 .IsRequired();
+
+            // xmin for optimistic concurrency
+            entity.Property<uint>("xmin")
+                .HasColumnType("xid")
+                .IsRowVersion();
 
             // Indexes
             entity.HasIndex(e => e.MaterialId)

@@ -1,4 +1,4 @@
-using Maliev.InventoryService.Api.Consumers;
+using Maliev.InventoryService.Infrastructure.Consumers;
 using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Api.Services;
 using Maliev.InventoryService.Infrastructure.Persistence;
