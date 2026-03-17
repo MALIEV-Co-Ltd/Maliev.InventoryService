@@ -14,7 +14,7 @@ namespace Maliev.InventoryService.Api.Controllers;
 /// Controller for managing material inventory.
 /// </summary>
 [ApiController]
-[ApiVersion("1.0")]
+[ApiVersion("1")]
 [Route("inventory/v{version:apiVersion}/stock")]
 [RequirePermission(InventoryPermissions.StockRead)]
 public class InventoryController : ControllerBase
