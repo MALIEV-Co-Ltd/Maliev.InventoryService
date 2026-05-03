@@ -86,8 +86,8 @@ public class InventoryService : IInventoryService
                 ActiveBatches = g.Count(b => b.Status == BatchStatus.Active),
                 TotalRemainingGrams = g.Sum(b => b.RemainingWeightGrams),
                 LowestBatchGrams = g.Min(b => b.RemainingWeightGrams),
-                HasLowStockAlert = g.Any(b => 
-                    b.Status == BatchStatus.Active && 
+                HasLowStockAlert = g.Any(b =>
+                    b.Status == BatchStatus.Active &&
                     b.RemainingWeightGrams < b.LowStockThresholdGrams)
             })
             .ToListAsync(cancellationToken);
