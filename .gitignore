@@ -52,6 +52,8 @@ CodeCoverage/
 *.rsuser
 *.suo
 *.user
+*.csproj.user
+*.DotSettings.user
 *.userosscache
 *.sln.docstates
 
