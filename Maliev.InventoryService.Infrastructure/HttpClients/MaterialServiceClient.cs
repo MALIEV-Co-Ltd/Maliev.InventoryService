@@ -29,7 +29,7 @@ public class MaterialServiceClient : IMaterialServiceClient
     {
         try
         {
-            var response = await _httpClient.GetAsync($"/api/materials/{materialId}", cancellationToken);
+            var response = await _httpClient.GetAsync($"/material/v1/materials/{materialId}", cancellationToken);
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {

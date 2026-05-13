@@ -33,7 +33,9 @@ public class MaterialServiceClientTests
         mockMessageHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
-                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.Is<HttpRequestMessage>(request =>
+                    request.RequestUri != null &&
+                    request.RequestUri.PathAndQuery == $"/material/v1/materials/{materialId}"),
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync(new HttpResponseMessage
             {
@@ -57,6 +59,13 @@ public class MaterialServiceClientTests
         Assert.Equal(materialId, result.Id);
         Assert.Equal("PLA", result.Name);
         Assert.Equal(1.24m, result.Density);
+        mockMessageHandler.Protected().Verify(
+            "SendAsync",
+            Times.Once(),
+            ItExpr.Is<HttpRequestMessage>(request =>
+                request.RequestUri != null &&
+                request.RequestUri.PathAndQuery == $"/material/v1/materials/{materialId}"),
+            ItExpr.IsAny<CancellationToken>());
     }
 
     /// <summary>
