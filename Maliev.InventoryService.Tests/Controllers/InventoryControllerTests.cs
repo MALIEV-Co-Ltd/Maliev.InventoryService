@@ -10,6 +10,11 @@ using Maliev.InventoryService.Application.Models;
 using Microsoft.Extensions.Logging;
 using AppCreateBatchRequest = Maliev.InventoryService.Application.Models.CreateBatchRequest;
 using ApiCreateBatchRequest = Maliev.InventoryService.Api.DTOs.CreateBatchRequest;
+using AppConsumeInventoryItemRequest = Maliev.InventoryService.Application.Models.ConsumeInventoryItemRequest;
+using AppCreateInventoryItemRequest = Maliev.InventoryService.Application.Models.CreateInventoryItemRequest;
+using ApiConsumeInventoryItemRequest = Maliev.InventoryService.Api.DTOs.ConsumeInventoryItemRequest;
+using ApiCreateInventoryItemRequest = Maliev.InventoryService.Api.DTOs.CreateInventoryItemRequest;
+using ApiInventoryItemResponse = Maliev.InventoryService.Api.DTOs.InventoryItemResponse;
 
 namespace Maliev.InventoryService.Tests.Controllers;
 
@@ -80,6 +85,110 @@ public class InventoryControllerTests
         Assert.Equal(1000m, response.InitialWeightGrams);
         Assert.Equal(1000m, response.RemainingWeightGrams);
         Assert.Equal("Active", response.Status);
+    }
+
+    /// <summary>
+    /// Verifies that a physical inventory item can be registered for a valid material.
+    /// </summary>
+    [Fact]
+    public async Task CreateItem_WithValidMaterial_Returns201Created()
+    {
+        var materialId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        _materialClientMock
+            .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Delrin POM", Density = 1.41m });
+
+        _inventoryServiceMock
+            .Setup(s => s.CreateInventoryItemAsync(It.IsAny<AppCreateInventoryItemRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InventoryItemResult
+            {
+                Id = itemId,
+                MaterialId = materialId,
+                TrackingCode = "INV-26-000001",
+                QrPayload = "/mfg/inventory/items/INV-26-000001",
+                InitialQuantity = 1m,
+                RemainingQuantity = 1m,
+                QuantityUnit = "pcs",
+                InitialWeightGrams = 0m,
+                RemainingWeightGrams = 0m,
+                Status = "Active",
+                Location = "Rack A3",
+                FormFactor = "Block",
+                LengthMm = 100m,
+                WidthMm = 100m,
+                HeightMm = 50m,
+                ReceivedAt = DateTimeOffset.UtcNow
+            });
+
+        var request = new ApiCreateInventoryItemRequest
+        {
+            MaterialId = materialId,
+            InitialQuantity = 1m,
+            QuantityUnit = "pcs",
+            Location = "Rack A3",
+            FormFactor = "Block",
+            LengthMm = 100m,
+            WidthMm = 100m,
+            HeightMm = 50m
+        };
+
+        var result = await _controller.CreateItem(request, CancellationToken.None);
+
+        var createdResult = Assert.IsType<CreatedAtActionResult>(result);
+        var response = Assert.IsType<ApiInventoryItemResponse>(createdResult.Value);
+        Assert.Equal("INV-26-000001", response.TrackingCode);
+        Assert.Equal("/mfg/inventory/items/INV-26-000001", response.QrPayload);
+        Assert.Equal("Block", response.FormFactor);
+    }
+
+    /// <summary>
+    /// Verifies that consuming a stock item returns the updated item state.
+    /// </summary>
+    [Fact]
+    public async Task ConsumeItem_WithValidTrackingCode_ReturnsUpdatedItem()
+    {
+        var itemId = Guid.NewGuid();
+        var materialId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+
+        _inventoryServiceMock
+            .Setup(s => s.ConsumeInventoryItemAsync(
+                "INV-26-000001",
+                It.Is<AppConsumeInventoryItemRequest>(request => request.JobId == jobId && request.QuantityConsumed == 125m),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new InventoryItemResult
+            {
+                Id = itemId,
+                MaterialId = materialId,
+                TrackingCode = "INV-26-000001",
+                QrPayload = "/mfg/inventory/items/INV-26-000001",
+                InitialQuantity = 1000m,
+                RemainingQuantity = 875m,
+                QuantityUnit = "g",
+                InitialWeightGrams = 1000m,
+                RemainingWeightGrams = 875m,
+                Status = "Active",
+                Location = "Printer rack",
+                FormFactor = "Spool",
+                ReceivedAt = DateTimeOffset.UtcNow
+            });
+
+        var result = await _controller.ConsumeItem(
+            "INV-26-000001",
+            new ApiConsumeInventoryItemRequest
+            {
+                JobId = jobId,
+                QuantityConsumed = 125m,
+                OperatorId = "operator-1"
+            },
+            CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiInventoryItemResponse>(okResult.Value);
+        Assert.Equal(875m, response.RemainingQuantity);
+        Assert.Equal("INV-26-000001", response.TrackingCode);
     }
 
     /// <summary>

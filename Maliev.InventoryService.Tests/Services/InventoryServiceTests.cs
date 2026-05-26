@@ -42,6 +42,7 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
 
     private async Task ClearDataAsync()
     {
+        _context.InventoryConsumptionEvents.RemoveRange(_context.InventoryConsumptionEvents);
         _context.InventoryBatches.RemoveRange(_context.InventoryBatches);
         await _context.SaveChangesAsync();
     }
@@ -233,6 +234,92 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
 
         var count = await _context.InventoryBatches.CountAsync();
         Assert.Equal(1, count);
+    }
+
+    /// <summary>
+    /// Verifies that CreateInventoryItemAsync records a physical stock item with scan-ready label data.
+    /// </summary>
+    [Fact]
+    public async Task CreateInventoryItemAsync_WithBlockMetadata_GeneratesTrackingAndQrPayload()
+    {
+        await ClearDataAsync();
+        var service = CreateService();
+        var materialId = Guid.NewGuid();
+
+        var result = await service.CreateInventoryItemAsync(new CreateInventoryItemRequest
+        {
+            MaterialId = materialId,
+            InitialQuantity = 1m,
+            QuantityUnit = "pcs",
+            FormFactor = "Block",
+            Location = "Rack A3",
+            LengthMm = 100m,
+            WidthMm = 100m,
+            HeightMm = 50m,
+            MaterialGrade = "Delrin POM",
+            Color = "Black",
+            ReceivedBy = "employee-1"
+        }, CancellationToken.None);
+
+        Assert.StartsWith("INV-", result.TrackingCode);
+        Assert.Contains(result.TrackingCode, result.QrPayload, StringComparison.Ordinal);
+        Assert.Equal(materialId, result.MaterialId);
+        Assert.Equal("Block", result.FormFactor);
+        Assert.Equal("pcs", result.QuantityUnit);
+        Assert.Equal(1m, result.RemainingQuantity);
+        Assert.Equal(100m, result.LengthMm);
+        Assert.Equal(100m, result.WidthMm);
+        Assert.Equal(50m, result.HeightMm);
+        Assert.Equal("Delrin POM", result.MaterialGrade);
+
+        var stored = await _context.InventoryBatches.SingleAsync();
+        Assert.Equal(result.TrackingCode, stored.TrackingCode);
+        Assert.Equal(result.QrPayload, stored.QrPayload);
+    }
+
+    /// <summary>
+    /// Verifies that ConsumeInventoryItemAsync deducts from one exact stock item and records a job audit event.
+    /// </summary>
+    [Fact]
+    public async Task ConsumeInventoryItemAsync_WithJobContext_DeductsStockAndCreatesAuditEvent()
+    {
+        await ClearDataAsync();
+        var service = CreateService();
+        var jobId = Guid.NewGuid();
+        var materialId = Guid.NewGuid();
+
+        var created = await service.CreateInventoryItemAsync(new CreateInventoryItemRequest
+        {
+            MaterialId = materialId,
+            InitialQuantity = 1000m,
+            QuantityUnit = "g",
+            FormFactor = "Spool",
+            Location = "Printer rack",
+            LowStockThresholdQuantity = 100m,
+            ReceivedBy = "employee-1"
+        }, CancellationToken.None);
+
+        var result = await service.ConsumeInventoryItemAsync(
+            created.TrackingCode,
+            new ConsumeInventoryItemRequest
+            {
+                JobId = jobId,
+                OperatorId = "operator-1",
+                QuantityConsumed = 250m,
+                Notes = "Assigned to production job"
+            },
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(750m, result.RemainingQuantity);
+        Assert.Equal(750m, result.RemainingWeightGrams);
+
+        var auditEvent = await _context.InventoryConsumptionEvents.SingleAsync();
+        Assert.Equal(created.Id, auditEvent.InventoryBatchId);
+        Assert.Equal(jobId, auditEvent.JobId);
+        Assert.Equal("operator-1", auditEvent.OperatorId);
+        Assert.Equal(250m, auditEvent.QuantityConsumed);
+        Assert.Equal(750m, auditEvent.RemainingQuantityAfter);
     }
 
     /// <summary>

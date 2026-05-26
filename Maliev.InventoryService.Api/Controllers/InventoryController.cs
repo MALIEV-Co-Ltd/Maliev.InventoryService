@@ -7,6 +7,9 @@ using Maliev.InventoryService.Application.Abstractions;
 using Maliev.InventoryService.Domain.Clients;
 using Maliev.InventoryService.Api.DTOs;
 using CreateBatchRequestModel = Maliev.InventoryService.Application.Models.CreateBatchRequest;
+using ConsumeInventoryItemRequestModel = Maliev.InventoryService.Application.Models.ConsumeInventoryItemRequest;
+using CreateInventoryItemRequestModel = Maliev.InventoryService.Application.Models.CreateInventoryItemRequest;
+using InventoryItemResultModel = Maliev.InventoryService.Application.Models.InventoryItemResult;
 
 namespace Maliev.InventoryService.Api.Controllers;
 
@@ -83,6 +86,121 @@ public class InventoryController : ControllerBase
     }
 
     /// <summary>
+    /// Registers one physical QR-tracked inventory item.
+    /// </summary>
+    [HttpPost("items")]
+    [RequirePermission(InventoryPermissions.StockWrite)]
+    [ProducesResponseType(typeof(InventoryItemResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateItem([FromBody] CreateInventoryItemRequest request, CancellationToken cancellationToken)
+    {
+        var material = await _materialClient.GetMaterialAsync(request.MaterialId, cancellationToken);
+        if (material == null)
+        {
+            _logger.LogWarning("Material {MaterialId} not found", request.MaterialId);
+            return NotFound(new { error = $"Material {request.MaterialId} not found." });
+        }
+
+        try
+        {
+            var result = await _inventoryService.CreateInventoryItemAsync(new CreateInventoryItemRequestModel
+            {
+                MaterialId = request.MaterialId,
+                InitialQuantity = request.InitialQuantity,
+                QuantityUnit = request.QuantityUnit,
+                Location = request.Location,
+                FormFactor = request.FormFactor,
+                LowStockThresholdQuantity = request.LowStockThresholdQuantity,
+                SupplierId = request.SupplierId,
+                PurchaseOrderId = request.PurchaseOrderId,
+                LotNumber = request.LotNumber,
+                ManufacturerSku = request.ManufacturerSku,
+                Color = request.Color,
+                MaterialGrade = request.MaterialGrade,
+                LengthMm = request.LengthMm,
+                WidthMm = request.WidthMm,
+                HeightMm = request.HeightMm,
+                DiameterMm = request.DiameterMm,
+                ThicknessMm = request.ThicknessMm,
+                ReceivedBy = request.ReceivedBy
+            }, cancellationToken);
+
+            return CreatedAtAction(nameof(GetItem), new { trackingCode = result.TrackingCode }, ToItemResponse(result));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Lists physical QR-tracked inventory items.
+    /// </summary>
+    [HttpGet("items")]
+    [ProducesResponseType(typeof(IEnumerable<InventoryItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ListItems(
+        [FromQuery] Guid? materialId = null,
+        [FromQuery] string? status = null,
+        CancellationToken cancellationToken = default)
+    {
+        var results = await _inventoryService.ListInventoryItemsAsync(materialId, status, cancellationToken);
+        return Ok(results.Select(ToItemResponse));
+    }
+
+    /// <summary>
+    /// Gets one physical QR-tracked inventory item by tracking code or QR payload.
+    /// </summary>
+    [HttpGet("items/{trackingCode}")]
+    [ProducesResponseType(typeof(InventoryItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetItem(string trackingCode, CancellationToken cancellationToken)
+    {
+        var result = await _inventoryService.GetInventoryItemByTrackingCodeAsync(trackingCode, cancellationToken);
+        return result is null ? NotFound() : Ok(ToItemResponse(result));
+    }
+
+    /// <summary>
+    /// Consumes material from one exact physical inventory item.
+    /// </summary>
+    [HttpPost("items/{trackingCode}/consume")]
+    [RequirePermission(InventoryPermissions.StockWrite)]
+    [ProducesResponseType(typeof(InventoryItemResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ConsumeItem(
+        string trackingCode,
+        [FromBody] ConsumeInventoryItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _inventoryService.ConsumeInventoryItemAsync(
+                trackingCode,
+                new ConsumeInventoryItemRequestModel
+                {
+                    JobId = request.JobId,
+                    OrderItemId = request.OrderItemId,
+                    OperatorId = request.OperatorId,
+                    MachineId = request.MachineId,
+                    QuantityConsumed = request.QuantityConsumed,
+                    Notes = request.Notes
+                },
+                cancellationToken);
+
+            return result is null ? NotFound() : Ok(ToItemResponse(result));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Gets the current status of material batches.
     /// </summary>
     [HttpGet("batches/status")]
@@ -105,5 +223,38 @@ public class InventoryController : ControllerBase
         });
 
         return Ok(summaries);
+    }
+
+    private static InventoryItemResponse ToItemResponse(InventoryItemResultModel result)
+    {
+        return new InventoryItemResponse
+        {
+            Id = result.Id,
+            MaterialId = result.MaterialId,
+            TrackingCode = result.TrackingCode,
+            QrPayload = result.QrPayload,
+            InitialQuantity = result.InitialQuantity,
+            RemainingQuantity = result.RemainingQuantity,
+            QuantityUnit = result.QuantityUnit,
+            InitialWeightGrams = result.InitialWeightGrams,
+            RemainingWeightGrams = result.RemainingWeightGrams,
+            Status = result.Status,
+            Location = result.Location,
+            FormFactor = result.FormFactor,
+            LowStockThresholdQuantity = result.LowStockThresholdQuantity,
+            SupplierId = result.SupplierId,
+            PurchaseOrderId = result.PurchaseOrderId,
+            LotNumber = result.LotNumber,
+            ManufacturerSku = result.ManufacturerSku,
+            Color = result.Color,
+            MaterialGrade = result.MaterialGrade,
+            LengthMm = result.LengthMm,
+            WidthMm = result.WidthMm,
+            HeightMm = result.HeightMm,
+            DiameterMm = result.DiameterMm,
+            ThicknessMm = result.ThicknessMm,
+            ReceivedBy = result.ReceivedBy,
+            ReceivedAt = result.ReceivedAt
+        };
     }
 }
