@@ -41,6 +41,14 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
     public async Task Consume(ConsumeContext<JobStartedEvent> context)
     {
         var message = context.Message.Payload;
+        if (message is null)
+        {
+            _logger.LogWarning(
+                "Ignoring JobStartedEvent {MessageId} without payload",
+                context.Message.MessageId);
+            return;
+        }
+
         if (!IsRoutedToInventoryService(context.Message.ConsumedBy))
         {
             _logger.LogDebug(

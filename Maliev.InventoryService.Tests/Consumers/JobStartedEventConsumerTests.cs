@@ -173,6 +173,32 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
     }
 
     /// <summary>
+    /// Verifies that malformed events without a payload are ignored without material deduction.
+    /// </summary>
+    [Fact]
+    public async Task Consume_WithoutPayload_SkipsDeduction()
+    {
+        var consumer = new JobStartedEventConsumer(
+            _materialClientMock.Object,
+            _context,
+            _loggerMock.Object);
+
+        var context = new Mock<ConsumeContext<JobStartedEvent>>();
+        context.Setup(c => c.Message).Returns(new JobStartedEvent
+        {
+            ConsumedBy = ["InventoryService"],
+            Payload = null!
+        });
+        context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
+
+        await consumer.Consume(context.Object);
+
+        _materialClientMock.Verify(
+            c => c.GetMaterialAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
     /// Verifies that no exception is thrown when no active batch exists for the material.
     /// </summary>
     [Fact]
