@@ -44,6 +44,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         _context = new InventoryDbContext(options);
         await _context.Database.EnsureCreatedAsync();
         // Clear data between tests since we reuse the container
+        _context.ProcessedInventoryEvents.RemoveRange(_context.ProcessedInventoryEvents);
         _context.InventoryBatches.RemoveRange(_context.InventoryBatches);
         await _context.SaveChangesAsync();
     }
@@ -111,6 +112,73 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         Assert.NotNull(updatedBatch);
         // 1000 - (100 * 1.2 * 1.10) = 1000 - 132 = 868
         Assert.Equal(868m, updatedBatch.RemainingWeightGrams);
+    }
+
+    /// <summary>
+    /// Verifies that duplicate job-start event delivery does not deduct material twice.
+    /// </summary>
+    [Fact]
+    public async Task Consume_DuplicateMessageId_DeductsOnlyOnce()
+    {
+        // Arrange
+        var materialId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        var messageId = Guid.NewGuid();
+
+        _materialClientMock
+            .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.2m });
+
+        var batch = new InventoryBatch
+        {
+            Id = batchId,
+            MaterialId = materialId,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 1000m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1),
+        };
+        _context.InventoryBatches.Add(batch);
+        await _context.SaveChangesAsync();
+
+        var consumer = new JobStartedEventConsumer(
+            _materialClientMock.Object,
+            _context,
+            _loggerMock.Object);
+
+        var context = new Mock<ConsumeContext<JobStartedEvent>>();
+        context.Setup(c => c.Message).Returns(new JobStartedEvent
+        {
+            MessageId = messageId,
+            ConsumedBy = ["InventoryService"],
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 100.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
+        });
+        context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
+
+        // Act
+        await consumer.Consume(context.Object);
+        await consumer.Consume(context.Object);
+
+        // Assert
+        var updatedBatch = await _context.InventoryBatches.FindAsync(batchId);
+        Assert.NotNull(updatedBatch);
+        Assert.Equal(868m, updatedBatch.RemainingWeightGrams);
+        Assert.Equal(1, await _context.ProcessedInventoryEvents.CountAsync());
+        Assert.Equal(1, await _context.InventoryConsumptionEvents.CountAsync());
+        _materialClientMock.Verify(
+            c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     /// <summary>

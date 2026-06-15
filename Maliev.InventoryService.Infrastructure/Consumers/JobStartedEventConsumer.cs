@@ -64,6 +64,23 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
             return;
         }
 
+        var processingMessageId = context.Message.MessageId == Guid.Empty
+            ? message.JobId
+            : context.Message.MessageId;
+
+        var alreadyProcessed = await _context.ProcessedInventoryEvents
+            .AsNoTracking()
+            .AnyAsync(processed => processed.MessageId == processingMessageId, context.CancellationToken);
+
+        if (alreadyProcessed)
+        {
+            _logger.LogInformation(
+                "Skipping duplicate JobStartedEvent {MessageId} for job {JobId}",
+                processingMessageId,
+                message.JobId);
+            return;
+        }
+
         // Get material density from Material Service
         var material = await _materialClient.GetMaterialAsync(message.MaterialId, context.CancellationToken);
         if (material == null)
@@ -94,6 +111,8 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
 
         // Execute deduction with retry for concurrency
         List<MaterialLowStockEvent> alertsToPublish = await ExecuteDeductionWithRetry(
+            processingMessageId,
+            message,
             batches,
             requiredGrams,
             context.CancellationToken);
@@ -107,6 +126,8 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
     }
 
     private async Task<List<MaterialLowStockEvent>> ExecuteDeductionWithRetry(
+        Guid processingMessageId,
+        JobStartedEventPayload message,
         List<InventoryBatch> batches,
         decimal requiredGrams,
         CancellationToken cancellationToken)
@@ -128,9 +149,11 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
                     if (remainingToDeduct <= 0)
                         break;
 
+                    var deductedFromBatch = 0m;
                     if (batch.RemainingWeightGrams >= remainingToDeduct)
                     {
                         // Batch can cover full deduction
+                        deductedFromBatch = remainingToDeduct;
                         batch.RemainingWeightGrams -= remainingToDeduct;
 
                         // T025a: Handle exact depletion
@@ -145,10 +168,29 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
                     else
                     {
                         // T032: Batch insufficient, deplete and continue to next
+                        deductedFromBatch = batch.RemainingWeightGrams;
                         remainingToDeduct -= batch.RemainingWeightGrams;
                         batch.RemainingWeightGrams = 0;
                         batch.Status = BatchStatus.Depleted;
                         _logger.LogInformation("Batch {BatchId} depleted during cascade", batch.Id);
+                    }
+
+                    if (deductedFromBatch > 0)
+                    {
+                        _context.InventoryConsumptionEvents.Add(new InventoryConsumptionEvent
+                        {
+                            Id = Guid.NewGuid(),
+                            InventoryBatchId = batch.Id,
+                            JobId = message.JobId,
+                            OperatorId = "JobStartedEvent",
+                            MachineId = string.IsNullOrWhiteSpace(message.AssignedMachineId)
+                                ? null
+                                : message.AssignedMachineId,
+                            QuantityConsumed = deductedFromBatch,
+                            RemainingQuantityAfter = batch.RemainingWeightGrams,
+                            Notes = $"JobStartedEvent:{processingMessageId}",
+                            ConsumedAt = DateTimeOffset.UtcNow
+                        });
                     }
 
                     // T039, T040: Check if batch crossed threshold
@@ -186,6 +228,14 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
                         "Insufficient inventory for material - {RemainingGrams}g still required after depleting all batches",
                         remainingToDeduct);
                 }
+
+                _context.ProcessedInventoryEvents.Add(new ProcessedInventoryEvent
+                {
+                    Id = Guid.NewGuid(),
+                    MessageId = processingMessageId,
+                    JobId = message.JobId,
+                    ProcessedAt = DateTimeOffset.UtcNow
+                });
 
                 await _context.SaveChangesAsync(cancellationToken);
                 return alertsToPublish;

@@ -26,6 +26,11 @@ public class InventoryDbContext : DbContext
     public DbSet<InventoryConsumptionEvent> InventoryConsumptionEvents { get; set; } = null!;
 
     /// <summary>
+    /// Gets or sets processed inventory message markers.
+    /// </summary>
+    public DbSet<ProcessedInventoryEvent> ProcessedInventoryEvents { get; set; } = null!;
+
+    /// <summary>
     /// Configures the model that was discovered by convention from the entity types.
     /// </summary>
     /// <param name="modelBuilder">The builder being used to construct the model for this context.</param>
@@ -189,6 +194,25 @@ public class InventoryDbContext : DbContext
 
             entity.HasIndex(e => e.ConsumedAt)
                 .HasDatabaseName("IX_InventoryConsumptionEvents_ConsumedAt");
+        });
+
+        modelBuilder.Entity<ProcessedInventoryEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.MessageId)
+                .IsRequired();
+
+            entity.Property(e => e.ProcessedAt)
+                .HasConversion<DateTimeOffset>()
+                .IsRequired();
+
+            entity.HasIndex(e => e.MessageId)
+                .IsUnique()
+                .HasDatabaseName("IX_ProcessedInventoryEvents_MessageId");
+
+            entity.HasIndex(e => e.JobId)
+                .HasDatabaseName("IX_ProcessedInventoryEvents_JobId");
         });
     }
 
