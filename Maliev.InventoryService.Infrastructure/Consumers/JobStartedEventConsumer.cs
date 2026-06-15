@@ -41,6 +41,13 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
     public async Task Consume(ConsumeContext<JobStartedEvent> context)
     {
         var message = context.Message.Payload;
+        if (!IsRoutedToInventoryService(context.Message.ConsumedBy))
+        {
+            _logger.LogDebug(
+                "Ignoring untargeted JobStartedEvent for job {JobId}",
+                message.JobId);
+            return;
+        }
 
         // T026: Handle zero/negative volume
         if (message.VolumeCm3 <= 0)
@@ -207,5 +214,11 @@ public class JobStartedEventConsumer : IConsumer<JobStartedEvent>
         }
 
         return new List<MaterialLowStockEvent>();
+    }
+
+    private static bool IsRoutedToInventoryService(IReadOnlyList<string>? consumedBy)
+    {
+        return consumedBy?.Any(
+            consumer => consumer.Equals("InventoryService", StringComparison.OrdinalIgnoreCase)) == true;
     }
 }

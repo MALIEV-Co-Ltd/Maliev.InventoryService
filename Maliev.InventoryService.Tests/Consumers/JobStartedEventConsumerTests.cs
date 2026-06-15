@@ -62,7 +62,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Arrange
         var materialId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.2m });
@@ -89,6 +89,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -113,6 +114,65 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
     }
 
     /// <summary>
+    /// Verifies that events not routed to InventoryService are ignored without material deduction.
+    /// </summary>
+    [Fact]
+    public async Task Consume_WithoutInventoryServiceRouting_SkipsDeduction()
+    {
+        var materialId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        _materialClientMock
+            .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.2m });
+
+        var batch = new InventoryBatch
+        {
+            Id = batchId,
+            MaterialId = materialId,
+            InitialWeightGrams = 1000m,
+            RemainingWeightGrams = 1000m,
+            Status = BatchStatus.Active,
+            Location = "Cabinet A",
+            LowStockThresholdGrams = 100m,
+            ReceivedAt = DateTime.UtcNow.AddDays(-1),
+        };
+        _context.InventoryBatches.Add(batch);
+        await _context.SaveChangesAsync();
+
+        var consumer = new JobStartedEventConsumer(
+            _materialClientMock.Object,
+            _context,
+            _loggerMock.Object);
+
+        var context = new Mock<ConsumeContext<JobStartedEvent>>();
+        context.Setup(c => c.Message).Returns(new JobStartedEvent
+        {
+            ConsumedBy = ["NotificationService"],
+            Payload = new JobStartedEventPayload
+            {
+                JobId = Guid.NewGuid(),
+                OrderId = Guid.NewGuid(),
+                MaterialId = materialId,
+                VolumeCm3 = 100.0,
+                Technology = "FDM",
+                AssignedMachineId = "PRINTER-01",
+                StartedAt = DateTimeOffset.UtcNow
+            }
+        });
+        context.Setup(c => c.CancellationToken).Returns(CancellationToken.None);
+
+        await consumer.Consume(context.Object);
+
+        var updatedBatch = await _context.InventoryBatches.FindAsync(batchId);
+        Assert.NotNull(updatedBatch);
+        Assert.Equal(1000m, updatedBatch.RemainingWeightGrams);
+        _materialClientMock.Verify(
+            c => c.GetMaterialAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
     /// Verifies that no exception is thrown when no active batch exists for the material.
     /// </summary>
     [Fact]
@@ -120,7 +180,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
     {
         // Arrange
         var materialId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material Y", Density = 1.2m });
@@ -133,6 +193,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -148,7 +209,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
 
         // Act - Should not throw (message acknowledged)
         await consumer.Consume(context.Object);
-        
+
         // Assert - No exception means message was acknowledged
         Assert.True(true);
     }
@@ -161,7 +222,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
     {
         // Arrange
         var materialId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((MaterialDto?)null);
@@ -174,6 +235,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -201,7 +263,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var materialId = Guid.NewGuid();
         var batchAId = Guid.NewGuid();
         var batchBId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -239,6 +301,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -258,7 +321,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Assert
         var updatedBatchA = await _context.InventoryBatches.FindAsync(batchAId);
         var updatedBatchB = await _context.InventoryBatches.FindAsync(batchBId);
-        
+
         Assert.NotNull(updatedBatchA);
         Assert.NotNull(updatedBatchB);
         Assert.Equal(BatchStatus.Depleted, updatedBatchA.Status);
@@ -278,7 +341,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Arrange
         var materialId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -305,6 +368,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -326,7 +390,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         Assert.NotNull(updatedBatch);
         Assert.True(updatedBatch.HasAlerted);
         Assert.Equal(40m, updatedBatch.RemainingWeightGrams); // 150 - (100 * 1.0 * 1.1) = 150 - 110 = 40
-        
+
         context.Verify(
             c => c.Publish(It.IsAny<MaterialLowStockEvent>(), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -341,7 +405,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Arrange
         var materialId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -369,6 +433,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -400,7 +465,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Arrange - Create 10 batches with 100g each
         var materialId = Guid.NewGuid();
         var batchIds = new List<Guid>();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -409,7 +474,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         {
             var batchId = Guid.NewGuid();
             batchIds.Add(batchId);
-            
+
             var batch = new InventoryBatch
             {
                 Id = batchId,
@@ -434,6 +499,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -464,17 +530,17 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
             Assert.Equal(BatchStatus.Depleted, batches[i].Status);
             Assert.Equal(0m, batches[i].RemainingWeightGrams);
         }
-        
+
         // 9th batch should have 75g remaining (100 - 25 = 75)
         Assert.Equal(BatchStatus.Active, batches[8].Status);
         Assert.Equal(75m, batches[8].RemainingWeightGrams);
-        
+
         // 10th batch should be untouched
         Assert.Equal(BatchStatus.Active, batches[9].Status);
         Assert.Equal(100m, batches[9].RemainingWeightGrams);
-        
+
         // Performance check (SC-007: should complete within 2 seconds)
-        Assert.True(stopwatch.ElapsedMilliseconds < 2000, 
+        Assert.True(stopwatch.ElapsedMilliseconds < 2000,
             $"Cascade operation took {stopwatch.ElapsedMilliseconds}ms, exceeding 2000ms threshold");
     }
 
@@ -487,7 +553,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Arrange
         var materialId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -514,6 +580,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -546,7 +613,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Arrange
         var materialId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -573,6 +640,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -605,7 +673,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         // Arrange
         var materialId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -633,6 +701,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
@@ -664,7 +733,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
     {
         // Arrange
         var materialId = Guid.NewGuid();
-        
+
         _materialClientMock
             .Setup(c => c.GetMaterialAsync(materialId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MaterialDto { Id = materialId, Name = "Material X", Density = 1.0m });
@@ -692,6 +761,7 @@ public class JobStartedEventConsumerTests : IClassFixture<PostgresFixture>, IAsy
         var context = new Mock<ConsumeContext<JobStartedEvent>>();
         context.Setup(c => c.Message).Returns(new JobStartedEvent
         {
+            ConsumedBy = ["InventoryService"],
             Payload = new JobStartedEventPayload
             {
                 JobId = Guid.NewGuid(),
