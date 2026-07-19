@@ -55,10 +55,10 @@ public class InventoryDbContextTests : IClassFixture<PostgresFixture>, IAsyncLif
             Status = BatchStatus.Active,
             Location = "Cabinet A"
         };
-        
+
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
-        
+
         var count = await _context.InventoryBatches.CountAsync();
         Assert.Equal(1, count);
     }
@@ -80,10 +80,10 @@ public class InventoryDbContextTests : IClassFixture<PostgresFixture>, IAsyncLif
             Status = BatchStatus.Depleted,
             Location = "Cabinet A"
         };
-        
+
         _context.InventoryBatches.Add(batch);
         await _context.SaveChangesAsync();
-        
+
         var result = await _context.InventoryBatches.FirstAsync();
         Assert.Equal(BatchStatus.Depleted, result.Status);
     }

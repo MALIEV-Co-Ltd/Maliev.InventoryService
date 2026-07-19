@@ -5,7 +5,7 @@ namespace Maliev.InventoryService.Tests;
 
 public class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _dbContainer = 
+    private readonly PostgreSqlContainer _dbContainer =
 #pragma warning disable CS0618
         new PostgreSqlBuilder()
         .WithImage("postgres:15-alpine")

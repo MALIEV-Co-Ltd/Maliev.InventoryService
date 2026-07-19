@@ -110,7 +110,7 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
     {
         await ClearDataAsync();
         var materialId = Guid.NewGuid();
-        
+
         _context.InventoryBatches.AddRange(
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 1000m, RemainingWeightGrams = 800m, Status = BatchStatus.Active, Location = "A", LowStockThresholdGrams = 100m, ReceivedAt = DateTime.UtcNow },
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 500m, RemainingWeightGrams = 500m, Status = BatchStatus.Active, Location = "B", LowStockThresholdGrams = 50m, ReceivedAt = DateTime.UtcNow }
@@ -138,7 +138,7 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
         await ClearDataAsync();
         var materialId1 = Guid.NewGuid();
         var materialId2 = Guid.NewGuid();
-        
+
         _context.InventoryBatches.AddRange(
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId1, InitialWeightGrams = 1000m, RemainingWeightGrams = 800m, Status = BatchStatus.Active, Location = "A", LowStockThresholdGrams = 100m, ReceivedAt = DateTime.UtcNow },
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId2, InitialWeightGrams = 500m, RemainingWeightGrams = 500m, Status = BatchStatus.Active, Location = "B", LowStockThresholdGrams = 50m, ReceivedAt = DateTime.UtcNow }
@@ -161,7 +161,7 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
     {
         await ClearDataAsync();
         var materialId = Guid.NewGuid();
-        
+
         _context.InventoryBatches.AddRange(
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 1000m, RemainingWeightGrams = 800m, Status = BatchStatus.Active, Location = "A", LowStockThresholdGrams = 100m, ReceivedAt = DateTime.UtcNow },
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 500m, RemainingWeightGrams = 0m, Status = BatchStatus.Depleted, Location = "B", LowStockThresholdGrams = 50m, ReceivedAt = DateTime.UtcNow }
@@ -185,7 +185,7 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
     {
         await ClearDataAsync();
         var materialId = Guid.NewGuid();
-        
+
         _context.InventoryBatches.AddRange(
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 1000m, RemainingWeightGrams = 500m, Status = BatchStatus.Active, Location = "A", LowStockThresholdGrams = 100m, ReceivedAt = DateTime.UtcNow },
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 200m, RemainingWeightGrams = 50m, Status = BatchStatus.Active, Location = "B", LowStockThresholdGrams = 100m, ReceivedAt = DateTime.UtcNow }
@@ -330,7 +330,7 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
     {
         await ClearDataAsync();
         var materialId = Guid.NewGuid();
-        
+
         _context.InventoryBatches.AddRange(
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 1000m, RemainingWeightGrams = 800m, Status = BatchStatus.Active, Location = "A", LowStockThresholdGrams = 100m, ReceivedAt = DateTime.UtcNow },
             new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 500m, RemainingWeightGrams = 0m, Status = BatchStatus.Depleted, Location = "B", LowStockThresholdGrams = 50m, ReceivedAt = DateTime.UtcNow }
@@ -353,7 +353,7 @@ public class InventoryServiceTests : IClassFixture<PostgresFixture>, IAsyncLifet
     {
         await ClearDataAsync();
         var materialId = Guid.NewGuid();
-        
+
         _context.InventoryBatches.Add(new InventoryBatch { Id = Guid.NewGuid(), MaterialId = materialId, InitialWeightGrams = 1000m, RemainingWeightGrams = 800m, Status = BatchStatus.Active, Location = "A", LowStockThresholdGrams = 100m, ReceivedAt = DateTime.UtcNow });
         await _context.SaveChangesAsync();
 
