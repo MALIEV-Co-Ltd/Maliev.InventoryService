@@ -20,6 +20,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Switch to PackageReference for Docker build
+        run: |
+          # Stable images consume stable shared-library packages.
+          VERSION_FORMAT="1.0.*"
+          find . -name "*.csproj" -type f -exec sed -i \
+            's|<ProjectReference Include=".*Maliev.Aspire.ServiceDefaults.*.csproj" />|<PackageReference Include="Maliev.Aspire.ServiceDefaults" Version="'$VERSION_FORMAT'" />|g' \
+            {} +
+          find . -name "*.csproj" -type f -exec sed -i \
+            's|<ProjectReference Include=".*Maliev.MessagingContracts.*.csproj" />|<PackageReference Include="Maliev.MessagingContracts" Version="'$VERSION_FORMAT'" />|g' \
+            {} +
+          echo "Switched to stable ServiceDefaults and MessagingContracts packages"
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:

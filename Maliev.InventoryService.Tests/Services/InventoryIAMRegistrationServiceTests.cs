@@ -40,7 +40,7 @@ public class InventoryIAMRegistrationServiceTests
         // Assert
         Assert.NotNull(permissions);
         Assert.Equal(4, permissions.Count);
-        
+
         var permissionIds = permissions.Select(p => p.PermissionId).ToList();
         Assert.Contains("inventory.stock.read", permissionIds);
         Assert.Contains("inventory.stock.write", permissionIds);
@@ -65,7 +65,7 @@ public class InventoryIAMRegistrationServiceTests
         // Assert
         Assert.NotNull(roles);
         Assert.Equal(3, roles.Count);
-        
+
         var roleIds = roles.Select(r => r.RoleId).ToList();
         Assert.Contains("roles.inventory.admin", roleIds);
         Assert.Contains("roles.inventory.manager", roleIds);
