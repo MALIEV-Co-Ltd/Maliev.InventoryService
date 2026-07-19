@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Switch to PackageReference for Docker build
         run: |
@@ -55,7 +55,7 @@ jobs:
           docker push asia-southeast1-docker.pkg.dev/maliev-website/maliev-website-artifact-prod/maliev-inventory-service:${{ github.sha }}
 
       - name: Checkout maliev-gitops repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: MALIEV-Co-Ltd/maliev-gitops
           token: ${{ secrets.GITOPS_PAT }}
