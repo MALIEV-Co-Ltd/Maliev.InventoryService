@@ -36,5 +36,3 @@ jobs:
     with:
       solution_file: Maliev.InventoryService.slnx
       extra_args: -p:SharedLibraryVersion=${{ needs.prep.outputs.version_format }}
-    secrets:
-      gitops_pat: ${{ secrets.GITOPS_PAT || github.token }}
