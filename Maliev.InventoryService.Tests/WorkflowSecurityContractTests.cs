@@ -11,19 +11,21 @@ public sealed class WorkflowSecurityContractTests
     private static readonly string RepositoryRoot = FindRepositoryRoot();
 
     /// <summary>
-    /// Dependabot cannot access repository secrets, so package restore must use the job token fallback.
+    /// Dependabot validation must build pinned public shared sources without package credentials.
     /// </summary>
     [Fact]
-    public void PullRequestRestore_UsesDependabotSafePackageToken()
+    public void PullRequestRestore_UsesCredentialFreePinnedSharedSources()
     {
         var caller = File.ReadAllText(Path.Combine(RepositoryRoot, ".github", "workflows", "pr-validation.yml"))
             .ReplaceLineEndings("\n");
         var reusable = File.ReadAllText(Path.Combine(RepositoryRoot, ".github", "workflows", "_build-and-test.yml"));
 
         Assert.Contains("permissions:\n  contents: read\n  packages: read", caller, StringComparison.Ordinal);
-        Assert.Contains("gitops_pat: ${{ secrets.GITOPS_PAT || github.token }}", caller, StringComparison.Ordinal);
-        Assert.DoesNotContain("gitops_pat: ${{ secrets.GITOPS_PAT }}", caller, StringComparison.Ordinal);
-        Assert.Contains("NUGET_PASSWORD: ${{ secrets.gitops_pat }}", reusable, StringComparison.Ordinal);
+        Assert.Contains("repository: MALIEV-Co-Ltd/Maliev.Aspire", reusable, StringComparison.Ordinal);
+        Assert.Contains("repository: MALIEV-Co-Ltd/Maliev.MessagingContracts", reusable, StringComparison.Ordinal);
+        Assert.Contains("-p:GITHUB_ACTIONS=false", reusable, StringComparison.Ordinal);
+        Assert.DoesNotContain("NUGET_PASSWORD", reusable, StringComparison.Ordinal);
+        Assert.DoesNotContain("secrets.gitops_pat", reusable, StringComparison.Ordinal);
     }
 
     /// <summary>
